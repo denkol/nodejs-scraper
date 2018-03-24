@@ -2,19 +2,30 @@ const needle = require('needle');
 const Promise = require('bluebird');
 const cheerio = require('cheerio');
 
-
 const TARGETS = [
   {
     url: "https://vc.ru/",
     node: '.b-article h2 span, p'
   },
-  {
-    url: "https://tjournal.ru/",
-    node: '.b-article h2 span, p'
-  },
-  // { 
-  //   url: "https://meduza.io/",
-  //   node: 'html'
+  // {
+  //   url: "https://tjournal.ru/",
+  //   node: '.b-article h2 span, p'
+  // },
+  // {
+  //   url: "https://news.ycombinator.com/",
+  //   node: '.storylink'
+  // },
+  // {
+  //   url: "https://news.ycombinator.com/news?p=3",
+  //   node: '.storylink'
+  // },
+  // {
+  //   url: "https://news.ycombinator.com/news?p=2",
+  //   node: '.storylink'
+  // },
+  // {
+  //   url: "https://news.ycombinator.com/news?p=4",
+  //   node: '.storylink'
   // },
   // {
   //   url: "http://www.the-village.ru/",
@@ -53,16 +64,23 @@ const EXСEPTIONS_LIST = [
   'дня',
   'рбк',
   'которые',
-  'можно'
+  'можно',
+  'from',
+  'for',
+  'and',
+  'with',
+  'his'
 ];
 
+const WORD_FILTER_REGEXP = /[\u2000-\u206F\u2E00-\u2E7F\\'!"#»«$%&()*+,.\/:;<=>?@\[\]^_`{|}~\n0-9]/g;
 
 
-function Request(websites) { 
+
+function Request(target) { 
   return new Promise((resolve, reject) => {
-    needle.get(websites.url, function(err, res) {
+    needle.get(target.url, function(err, res) {
       if(res) {
-        resolve(ParseHTML(res.body, websites.node));
+        resolve(ParseHTML(res.body, target.node));
       } else {
         reject(err);
       }
@@ -89,27 +107,22 @@ function ParseHTML(data, selector) {
   for(let i = 0; i < nodes.length; i++) {
     let words = $(nodes[i]).text().toLowerCase().split(" ");
     for(let j = 0; j < words.length; j++) {
-      const word = words[j].replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#»«$%&()*+,.\/:;<=>?@\[\]^_`{|}~\n0-9]/g, "");
+      const word = words[j].replace(WORD_FILTER_REGEXP, "");
       
       if(checkExteption(word, EXСEPTIONS_LIST)) {
         break;
       }
 
-      if(word === "травле") {
-        console.log(word);
-      }
-
       if(word.length > 2) {
         returnArr.push(word);
       }
-
     }
   }
 
   return returnArr;
 };
 
-const FindEqual = (arr) => {
+function FindEqual(arr) {
   let pareObj = {};
   
   for(let i = 0; i < arr.length; i++) {
@@ -133,7 +146,7 @@ function SortByValue(obj) {
   }
 
   sortable.sort(function(a, b) {
-      return b[1] - a[1];
+    return b[1] - a[1];
   });
 
   return sortable;
@@ -156,27 +169,32 @@ function SpreadArrays(arr) {
   return tempArr;
 };
 
-const Req = () => new Promise((resolve, reject) => {
+
+const CombineRequests = () => new Promise((resolve, reject) => {
   let sites = [];
+  let ms = 0;
+
   for(let i = 0; i < TARGETS.length; i++) {
     sites.push(Request(TARGETS[i]));
-    console.log(TARGETS[i].url)
+    console.log(TARGETS[i].url);
     if((i + 1) === TARGETS.length) {
-      console.log('Loading...')
+      console.log('Loading...');
+      let timer = setInterval(() => ms += 100, 100);
       Promise.all(sites).then(values => {
-        resolve(values);
+        clearInterval(timer);
+        resolve({values, ms});
       });
     }
   }
 })
 
-Req()
+CombineRequests()
   .then((res) => {
-    console.log(BeautifulList(res));
-    console.log('OK')
+    console.log(BeautifulList(res.values));
+    console.log(`Done. (${res.ms/1000} sec)`);
   })
   .catch((err) => {
     console.log(err);
-  })
+  });
 
 
