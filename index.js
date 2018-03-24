@@ -1,27 +1,86 @@
 const needle = require('needle');
 const Promise = require('bluebird');
 const cheerio = require('cheerio');
-const PARAMS = {
-  websites: [
 
-    {
-      url: "https://vc.ru/",
-      node: '.b-article h2 span, p'
-    }
-  ]
+
+const TARGETS = [
+  {
+    url: "https://vc.ru/",
+    node: '.b-article h2 span, p'
+  },
+  {
+    url: "https://tjournal.ru/",
+    node: '.b-article h2 span, p'
+  },
+  // { 
+  //   url: "https://meduza.io/",
+  //   node: 'html'
+  // },
+  // {
+  //   url: "http://www.the-village.ru/",
+  //   node: '.widget-news-block'
+  // },
+  // {
+  //   url: "https://www.rbc.ru/",
+  //   node: '.main, .l-col-center__inner, span'
+  // }
+];
+
+
+const EXСEPTIONS_LIST = [
+  'часов', 
+  'для', 
+  'что', 
+  'почему', 
+  'как', 
+  'млн', 
+  'млрд',
+  'они',
+  'чем',
+  'чтобы',
+  'теперь',
+  'том',
+  'после',
+  'из-за',
+  'еще',
+  'ещё',
+  'есть',
+  'мар',
+  'фото',
+  'видео',
+  'the',
+  'новости',
+  'дня',
+  'рбк',
+  'которые',
+  'можно'
+];
+
+
+
+function Request(websites) { 
+  return new Promise((resolve, reject) => {
+    needle.get(websites.url, function(err, res) {
+      if(res) {
+        resolve(ParseHTML(res.body, websites.node));
+      } else {
+        reject(err);
+      }
+    });
+  });
 };
 
-const Request = (websites) => new Promise((resolve, reject) => {
-  needle.get(websites.url, function(err, res) {
-    if(res) {
-      resolve(ParseHTML(res.body, websites.node));
-    } else {
-      reject(err);
-    }
-  });
-});
 
-const ParseHTML = (data, selector) => {
+function checkExteption(word, exArr) {
+  for(let i = 0; i < exArr.length; i++) {
+    if(word === exArr[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function ParseHTML(data, selector) {
   const $ = cheerio.load(data);
   const nodes = $(selector);
   
@@ -31,10 +90,19 @@ const ParseHTML = (data, selector) => {
     let words = $(nodes[i]).text().toLowerCase().split(" ");
     for(let j = 0; j < words.length; j++) {
       const word = words[j].replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#»«$%&()*+,.\/:;<=>?@\[\]^_`{|}~\n0-9]/g, "");
-      // const word = words[j].replace(/^[а-яА-ЯёЁa-zA-Z]/g, "");
-      // const word = words[j];
-      if(word.length > 2)
+      
+      if(checkExteption(word, EXСEPTIONS_LIST)) {
+        break;
+      }
+
+      if(word === "травле") {
+        console.log(word);
+      }
+
+      if(word.length > 2) {
         returnArr.push(word);
+      }
+
     }
   }
 
@@ -58,10 +126,10 @@ const FindEqual = (arr) => {
 };
 
 
-const SortByValue = (obj) => {
+function SortByValue(obj) {
   var sortable = [];
   for (var key in obj) {
-      sortable.push([key, obj[key]]);
+    sortable.push([key, obj[key]]);
   }
 
   sortable.sort(function(a, b) {
@@ -71,15 +139,44 @@ const SortByValue = (obj) => {
   return sortable;
 }
 
-
-
-Promise.all([Request(PARAMS.websites[0])]).then(function(values) {
-  let d = [];
-  for(let i = 0; i < values.length; i++) {
-    d.push(...values[i]);
-  }
-  
-  const Equal = FindEqual(d);
+function BeautifulList(arr) {
+  const Spread = SpreadArrays(arr);
+  const Equal = FindEqual(Spread);
   const Sorted = SortByValue(Equal);
-  console.log(Sorted);
-});
+  return Sorted;
+}
+
+function SpreadArrays(arr) {
+  let tempArr = [];
+  
+  for(let i = 0; i < arr.length; i++) {
+    tempArr.push(...arr[i]);
+  }
+
+  return tempArr;
+};
+
+const Req = () => new Promise((resolve, reject) => {
+  let sites = [];
+  for(let i = 0; i < TARGETS.length; i++) {
+    sites.push(Request(TARGETS[i]));
+    console.log(TARGETS[i].url)
+    if((i + 1) === TARGETS.length) {
+      console.log('Loading...')
+      Promise.all(sites).then(values => {
+        resolve(values);
+      });
+    }
+  }
+})
+
+Req()
+  .then((res) => {
+    console.log(BeautifulList(res));
+    console.log('OK')
+  })
+  .catch((err) => {
+    console.log(err);
+  })
+
+
