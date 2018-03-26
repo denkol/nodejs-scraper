@@ -1,13 +1,5 @@
 {
-  "name": "scrap",
-  "version": "1.0.0",
-  "description": "",
-  "main": "test.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
+  "private": true,
   "dependencies": {
     "bluebird": "^3.5.1",
     "cheerio": "^1.0.0-rc.2",

@@ -1,86 +1,18 @@
 const needle = require('needle');
 const Promise = require('bluebird');
 const cheerio = require('cheerio');
+const config = require('./config.js');
 
-const TARGETS = [
-  {
-    url: "https://vc.ru/",
-    node: '.b-article h2 span, p'
-  },
-  // {
-  //   url: "https://tjournal.ru/",
-  //   node: '.b-article h2 span, p'
-  // },
-  // {
-  //   url: "https://news.ycombinator.com/",
-  //   node: '.storylink'
-  // },
-  // {
-  //   url: "https://news.ycombinator.com/news?p=3",
-  //   node: '.storylink'
-  // },
-  // {
-  //   url: "https://news.ycombinator.com/news?p=2",
-  //   node: '.storylink'
-  // },
-  // {
-  //   url: "https://news.ycombinator.com/news?p=4",
-  //   node: '.storylink'
-  // },
-  // {
-  //   url: "http://www.the-village.ru/",
-  //   node: '.widget-news-block'
-  // },
-  // {
-  //   url: "https://www.rbc.ru/",
-  //   node: '.main, .l-col-center__inner, span'
-  // }
-];
+const TARGETS = config.TARGETS;
+const EXСEPTIONS_LIST = config.EXСEPTIONS_LIST;
+const WORD_FILTER_REGEXP = config.WORD_FILTER_REGEXP;
 
 
-const EXСEPTIONS_LIST = [
-  'часов', 
-  'для', 
-  'что', 
-  'почему', 
-  'как', 
-  'млн', 
-  'млрд',
-  'они',
-  'чем',
-  'чтобы',
-  'теперь',
-  'том',
-  'после',
-  'из-за',
-  'еще',
-  'ещё',
-  'есть',
-  'мар',
-  'фото',
-  'видео',
-  'the',
-  'новости',
-  'дня',
-  'рбк',
-  'которые',
-  'можно',
-  'from',
-  'for',
-  'and',
-  'with',
-  'his'
-];
-
-const WORD_FILTER_REGEXP = /[\u2000-\u206F\u2E00-\u2E7F\\'!"#»«$%&()*+,.\/:;<=>?@\[\]^_`{|}~\n0-9]/g;
-
-
-
-function Request(target) { 
+function request(target) { 
   return new Promise((resolve, reject) => {
     needle.get(target.url, function(err, res) {
       if(res) {
-        resolve(ParseHTML(res.body, target.node));
+        resolve(parseHTML(res.body, target.node));
       } else {
         reject(err);
       }
@@ -98,7 +30,7 @@ function checkExteption(word, exArr) {
   return false;
 }
 
-function ParseHTML(data, selector) {
+function parseHTML(data, selector) {
   const $ = cheerio.load(data);
   const nodes = $(selector);
   
@@ -122,7 +54,7 @@ function ParseHTML(data, selector) {
   return returnArr;
 };
 
-function FindEqual(arr) {
+function findEqual(arr) {
   let pareObj = {};
   
   for(let i = 0; i < arr.length; i++) {
@@ -139,8 +71,9 @@ function FindEqual(arr) {
 };
 
 
-function SortByValue(obj) {
+function sortByValue(obj) {
   var sortable = [];
+
   for (var key in obj) {
     sortable.push([key, obj[key]]);
   }
@@ -152,14 +85,15 @@ function SortByValue(obj) {
   return sortable;
 }
 
-function BeautifulList(arr) {
-  const Spread = SpreadArrays(arr);
-  const Equal = FindEqual(Spread);
-  const Sorted = SortByValue(Equal);
-  return Sorted;
+function beautifulList(arr) {
+  const spread = spreadArrays(arr);
+  const equal = findEqual(spread);
+  const sorted = sortByValue(equal);
+
+  return sorted;
 }
 
-function SpreadArrays(arr) {
+function spreadArrays(arr) {
   let tempArr = [];
   
   for(let i = 0; i < arr.length; i++) {
@@ -170,27 +104,32 @@ function SpreadArrays(arr) {
 };
 
 
-const CombineRequests = () => new Promise((resolve, reject) => {
+const combineRequests = () => new Promise((resolve, reject) => {
   let sites = [];
   let ms = 0;
 
   for(let i = 0; i < TARGETS.length; i++) {
-    sites.push(Request(TARGETS[i]));
+    sites.push(request(TARGETS[i]));
     console.log(TARGETS[i].url);
+
     if((i + 1) === TARGETS.length) {
+      
       console.log('Loading...');
+    
       let timer = setInterval(() => ms += 100, 100);
+      
       Promise.all(sites).then(values => {
         clearInterval(timer);
         resolve({values, ms});
       });
+
     }
   }
 })
 
-CombineRequests()
+combineRequests()
   .then((res) => {
-    console.log(BeautifulList(res.values));
+    console.log(beautifulList(res.values));
     console.log(`Done. (${res.ms/1000} sec)`);
   })
   .catch((err) => {
